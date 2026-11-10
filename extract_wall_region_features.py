@@ -1,3 +1,19 @@
+"""
+Wall-Region Feature Calculator — helper library
+===============================================
+
+This file is NOT run by hand during normal training. It is imported by
+`extract_every_5_frames.py` (Step 1) and does one job: given a person's
+keypoints and the drawn wall boundary lines (annotation JSON), it
+calculates 48 NUMBERS describing that person's interaction with the wall
+zone — how close their nose, wrists, shoulders, hips... are to the wall's
+top and bottom boundaries, inside vs outside the safe area.
+
+It can also be run directly as an older 30-frame experiment tool, but
+the every-5-frames pipeline does not need that.
+
+Plain-English walkthrough: TRAINING_GUIDE.md
+"""
 
 import json
 import numpy as np
@@ -6,7 +22,9 @@ from pathlib import Path
 
 
 # ============================================================
-# CONFIGURATION
+# CONFIGURATION — constant settings used by the feature math.
+# Only touch the paths if you move your data folders; the
+# thresholds control how strict YOLO detection is.
 # ============================================================
 
 PROJECT_DIR = Path(__file__).resolve().parent

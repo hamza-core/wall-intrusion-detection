@@ -1,8 +1,44 @@
 
 """
 Multi-Person Wall Intrusion Detection
-Every-5-Frames Variable-Length BiLSTM Trainer
+=====================================================
 
+This is the MAIN TRAINING SCRIPT. Run it from the project root:
+
+    python train_every_5_frames.py
+
+It reads the feature files that `extract_every_5_frames.py` produced
+(Step 1 of the pipeline) and trains a BiLSTM to tell
+"Wall crossing" (label 1) apart from "Normal" (label 0).
+The finished model is saved as:
+
+    artifacts/models_every_5_frames/
+        multi_person_region_lstm_every_5_frames.pth
+
+That .pth file is exactly what `predict.py` and the web app use.
+
+-----------------------------------------------------
+BEGINNER SUMMARY — WHAT HAPPENS IN THIS SCRIPT
+-----------------------------------------------------
+1. Load feature tables: one table per video.
+   Every table has (frames, 5 person slots, 104 numbers per person).
+   The 104 numbers = 55 pose + 48 wall-region + 1 annotation flag.
+2. Group videos into batches of 4. Because videos have different
+   lengths, shorter ones are PADDED WITH ZEROS up to the longest
+   video in the batch — the padding is then ignored by the model.
+3. For each person, a BiLSTM reads their frame-by-frame numbers
+   and summarizes the motion into a small vector (embedding).
+4. The "most suspicious person" summary is used to predict
+   Wall crossing / Normal.
+5. After each epoch, the model is checked on validation videos
+   it has never seen. The best version is kept and early stopping
+   (12 idle epochs) ends the run.
+
+Full plain-English walkthrough: see TRAINING_GUIDE.md.
+
+-----------------------------------------------------
+TECHNICAL SPEC
+-----------------------------------------------------
 Input:
     (batch, variable_frames, 5, 104)
 
@@ -53,6 +89,10 @@ from sklearn.metrics import (
 
 # ============================================================
 # CONFIGURATION
+# Open this block to tweak training. Numbers marked with
+# "SAFE TO CHANGE" you can play with; the feature sizes must
+# stay fixed or the trained model will no longer match the
+# classifier and the web app.
 # ============================================================
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -77,22 +117,22 @@ EXPERIMENT_DIR = (
 
 MODEL_NAME = "multi_person_region_lstm_every_5_frames"
 
-MAX_PEOPLE = 5
-FEATURE_SIZE = 104
+MAX_PEOPLE = 5        # up to 5 people tracked per frame (do NOT change)
+FEATURE_SIZE = 104    # 55 pose + 48 wall + 1 flag  (do NOT change)
 
-POSE_FEATURE_SIZE = 55
-REGION_FEATURE_SIZE = 48
+POSE_FEATURE_SIZE = 55    # skeleton keypoints, normalized 0-1
+REGION_FEATURE_SIZE = 48  # distances to the wall boundary lines
 
-HIDDEN_SIZE = 64
-NUM_LAYERS = 2
-DROPOUT = 0.3
+HIDDEN_SIZE = 64        # SAFE TO CHANGE — LSTM memory size (bigger = smarter but slower)
+NUM_LAYERS = 2          # SAFE TO CHANGE — stacked BiLSTM layers
+DROPOUT = 0.3           # SAFE TO CHANGE — anti-overfitting (randomly drops 30% of channels)
 
-BATCH_SIZE = 4
-LEARNING_RATE = 0.001
-MAX_EPOCHS = 60
-PATIENCE = 12
+BATCH_SIZE = 4          # SAFE TO CHANGE — videos processed together
+LEARNING_RATE = 0.001   # SAFE TO CHANGE — step size while learning
+MAX_EPOCHS = 60         # SAFE TO CHANGE — hard cap on passes over the data
+PATIENCE = 12           # SAFE TO CHANGE — stop early if no improvement for 12 epochs
 
-RANDOM_SEED = 42
+RANDOM_SEED = 42        # fixed → re-running gives you the same result
 
 
 # ============================================================
@@ -562,6 +602,10 @@ class MultiPersonIntrusionLSTM_V2(nn.Module):
 
         # ----------------------------------------------------
         # 2. PACK VARIABLE-LENGTH SEQUENCES
+        # WHY: a batch mixes short and long videos. "Packing"
+        # tells the LSTM to stop reading a sequence once its
+        # real end is reached, so the zero-padding never
+        # pollutes the learned motion.
         # ----------------------------------------------------
 
         person_lengths = (
@@ -610,6 +654,10 @@ class MultiPersonIntrusionLSTM_V2(nn.Module):
 
         # ----------------------------------------------------
         # 5. PEAK TEMPORAL POOLING
+        # WHY "peak": instead of remembering every frame, we keep
+        # the single most suspicious moment of each person's
+        # timeline. Even a brief crossing attempt shows up here.
+        # (-inf marks padding/empty slots so they never win the max)
         # ----------------------------------------------------
 
         masked_for_peak = lstm_out.masked_fill(
@@ -686,6 +734,9 @@ class MultiPersonIntrusionLSTM_V2(nn.Module):
 
         # ----------------------------------------------------
         # 9. MAX POOL ACROSS PEOPLE
+        # WHY: there may be many bystanders and only one climber.
+        # Taking the most suspicious person's score means the
+        # bystanders cannot "average away" the intrusion signal.
         # ----------------------------------------------------
 
         pooled = person_embedding.max(dim=1).values
@@ -977,6 +1028,9 @@ def train_model(
 
         # ----------------------------------------------------
         # EARLY STOPPING
+        # "Patience": if validation loss has not improved for
+        # PATIENCE epochs in a row, the model has probably
+        # learned as much as it can and training stops early.
         # ----------------------------------------------------
 
         if val_loss < best_val_loss:

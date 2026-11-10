@@ -17,9 +17,10 @@ at inference time (the YOLO weights are local).
 |---|---|---|
 | `models/multi_person_region_lstm_every_5_frames.pth` | copied from `artifacts/models_every_5_frames/` | Trained BiLSTM classifier (raw `state_dict`) |
 | `yolo11n-pose.pt` | copied from project root | Local YOLO11 pose detector (never downloads) |
-| `extract_every_5_frames.py` | copied unchanged | Person detection, box correction, 55-d normalized pose features, IoU track association, frame sampling every 5 frames |
-| `extract_wall_region_features.py` | copied unchanged | 48-d wall-region features from annotated top/bottom boundaries |
-| `train_every_5_frames.py` | copied unchanged | Source of truth for the `MultiPersonIntrusionLSTM_V2` architecture (imported by `predict.py` and the backend; its training code only runs if executed directly) |
+| `extract_every_5_frames.py` | adapted (docstrings only) | Person detection, box correction, 55-d normalized pose features, IoU track association, frame sampling every 5 frames |
+| `extract_wall_region_features.py` | adapted (docstrings only) | 48-d wall-region features from annotated top/bottom boundaries |
+| `train_every_5_frames.py` | adapted (docstrings only) | Source of truth for the `MultiPersonIntrusionLSTM_V2` architecture (imported by `predict.py` and the backend; its training code only runs if executed directly) |
+| `TRAINING_GUIDE.md` | **new** | Plain-English beginner walkthrough of the whole training pipeline |
 | `predict.py` | **new** | End-to-end CLI inference: video + wall annotation → prediction |
 | `backend/` | copied from `development/backend/`, adapted | FastAPI API serving this checkpoint (port 8010) |
 | `frontend/` | copied from `development/frontend/`, adapted | React/Vite UI wired to the standalone backend (port 5174) |
@@ -69,6 +70,27 @@ temporal pooling + last-valid-frame pooling, masked max pooling across
 people, and a small classifier head.
 
 ## Usage
+
+### Retrain the model from scratch (beginner-friendly)
+
+The AI/training code is explained in plain English in
+**[`TRAINING_GUIDE.md`](TRAINING_GUIDE.md)** — no deep learning knowledge needed.
+It walks through the whole pipeline:
+
+```bash
+# Step 1 — turn training videos into feature tables (numbers)
+python extract_every_5_frames.py --limit 3     # small test first
+python extract_every_5_frames.py               # then all videos
+
+# Step 2 — train the BiLSTM (saves models/multi_person_region_lstm_every_5_frames.pth)
+python train_every_5_frames.py
+
+# Step 3 — test the trained model on one video
+python predict.py --video path/to/video.mp4 --annotation path/to/annotation.json
+```
+
+The guide also explains what the 104 input numbers mean, how to read the
+metrics, which settings are safe to tune, and the common error messages.
 
 ### CLI (single file)
 

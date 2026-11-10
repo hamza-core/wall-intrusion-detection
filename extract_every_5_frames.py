@@ -1,3 +1,34 @@
+"""
+Feature Extraction — STEP 1 of training
+=======================================
+
+Run from the project root AFTER you put videos in `dataset/train/`:
+
+    python extract_every_5_frames.py              # all videos
+    python extract_every_5_frames.py --limit 5    # quick test on 5 videos
+    python extract_every_5_frames.py --video 1.mp4
+
+Beginner summary — what this script does to every training video:
+    1. Samples EVERY 5TH FRAME (real 30 fps → 6 sampled fps).
+       Still sees the whole action, but 5x less work.
+    2. Runs YOLO11n-pose (yolo11n-pose.pt, fully offline) on each
+       sampled frame → 17 body keypoints per detected person.
+    3. Matches each detected person across frames into numbered
+       "track slots" (person 0, 1, 2...), up to MAX_PEOPLE = 5,
+       so the model can follow one person over time.
+    4. Saves, per video:
+         pose_sequences/*.npz          (frames, 5, 55)  skeleton numbers
+         wall_region_features/*.npz    (frames, 5, 103) skeleton + wall numbers
+
+The wall-region numbers come from the helper library
+`extract_wall_region_features.py` — you never need to run it by hand.
+
+What is an .npz file? A compressed folder of NumPy arrays. You never
+open it manually — `train_every_5_frames.py` reads it for you.
+
+Plain-English walkthrough: TRAINING_GUIDE.md
+"""
+
 from pathlib import Path
 import argparse
 import json
