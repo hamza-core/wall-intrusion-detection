@@ -1,0 +1,8 @@
+# Standalone Every-5-Frames Multi-Person Region LSTM
+#
+# Python dependencies for running predict.py offline.
+
+torch>=2.0.0
+ultralytics>=8.1.0
+opencv-python>=4.8.0
+numpy>=1.24.0

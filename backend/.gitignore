@@ -1,0 +1,14 @@
+# Temporary uploaded videos — never commit these
+uploads/
+results/
+
+# Environment file with local overrides
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# macOS
+.DS_Store

@@ -1,0 +1,13 @@
+# Wall Intrusion Detection — Backend Requirements
+#
+# Install into the same Python environment that already has
+# torch, ultralytics, opencv-python, and numpy from your ML project.
+#
+#   pip install -r requirements.txt
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.0
